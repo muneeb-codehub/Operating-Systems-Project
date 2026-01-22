@@ -462,9 +462,11 @@ public:
     
     // Synchronous message send (wait for acknowledgment)
     void sendMessageSync(const string& message) {
-        lock_guard<mutex> lock(ipc_mutex);
-        global_queue.push_back(message);
-        cout << "[IPC-SYNC] Message sent (blocking): " << message << endl;
+        {
+            lock_guard<mutex> lock(ipc_mutex);
+            global_queue.push_back(message);
+            cout << "[IPC-SYNC] Message sent (blocking): " << message << endl;
+        } // Release lock before sleeping
         // Simulate waiting for acknowledgment
         this_thread::sleep_for(chrono::milliseconds(100));
         cout << "[IPC-SYNC] Acknowledgment received" << endl;
@@ -587,12 +589,15 @@ public:
                 account_manager.checkBalance(account_id);
             } else if (choice == 5) {
                 cout << "\n[MULTITHREADING DEMO] Processing transactions concurrently...\n";
+                // Ensure account exists
+                account_manager.createAccount("DEMO111", 2000.0);
+                
                 vector<thread> threads;
                 int pid1 = process_table.createProcess("T1");
                 int pid2 = process_table.createProcess("T2");
                 
-                threads.emplace_back(&TransactionManager::createTransaction, &transaction_manager, "T1", "deposit", "111", 1000.0, pid1);
-                threads.emplace_back(&TransactionManager::createTransaction, &transaction_manager, "T2", "withdraw", "111", 500.0, pid2);
+                threads.emplace_back(&TransactionManager::createTransaction, &transaction_manager, "T1", "deposit", "DEMO111", 1000.0, pid1);
+                threads.emplace_back(&TransactionManager::createTransaction, &transaction_manager, "T2", "withdraw", "DEMO111", 500.0, pid2);
                 
                 for (auto& t : threads) {
                     t.join();
@@ -605,11 +610,15 @@ public:
                 process_table.displayProcessTable();
                 
             } else if (choice == 7) {
+                // Create demo accounts for scheduling simulation
+                account_manager.createAccount("SCHED_A1", 1000.0);
+                account_manager.createAccount("SCHED_A2", 500.0);
+                
                 vector<tuple<string, string, string, double>> transactions = {
-                    {"T1", "deposit", "A1", 500},
-                    {"T2", "withdraw", "A2", 200},
-                    {"T3", "balance", "A1", 0},
-                    {"T4", "deposit", "A2", 300}};
+                    {"T1", "deposit", "SCHED_A1", 500},
+                    {"T2", "withdraw", "SCHED_A2", 200},
+                    {"T3", "balance", "SCHED_A1", 0},
+                    {"T4", "deposit", "SCHED_A2", 300}};
                 cpu_scheduler.simulateRoundRobin(transactions);
                 
             } else if (choice == 8) {
